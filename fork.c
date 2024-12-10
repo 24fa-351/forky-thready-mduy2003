@@ -14,60 +14,69 @@ void fork_pattern_one(int number_of_processes)
     for (int ix = 0; ix < number_of_processes; ++ix) {
         pids[ix] = fork(); // Fork a new process
 
-        if (pids[ix] < 0) // Fork failed
-        {
+        if (pids[ix] < 0) {
             perror("Fork failed");
             exit(EXIT_FAILURE);
         }
 
-        if (pids[ix] == 0) // Checks if current process is a child
-        {
+        if (pids[ix] == 0) { // Child process
             printf("Process %d (%d) beginning\n", ix + 1, getpid());
             sleep(1 + (rand() % 8));
             printf("Process %d (%d) exiting\n", ix + 1, getpid());
-            exit(EXIT_SUCCESS); // Exit current process
+            exit(EXIT_SUCCESS);
         }
     }
 
-    for (int ix = 0; ix < number_of_processes;
-         ix++) // Waits for all child processes to finish
-    {
-        pid_t pid
-            = waitpid(pids[ix], 0, 0); // Waits for current process to finish
+    // Waits for child processes to finish
+    for (int ix = 0; ix < number_of_processes; ix++) {
+        pid_t pid = waitpid(pids[ix], 0, 0);
+        if (pid < 0) {
+            perror("Waitpid failed");
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
-void fork_pattern_two(int number_of_processes)
+void fork_pattern_two_child(int ix, int number_of_processes)
 {
     srand(time(NULL));
     pid_t pid;
 
-    for (int ix = 0; ix < number_of_processes; ++ix) {
-        pid = fork(); // Fork a new process
+    for (; ix < number_of_processes; ++ix) {
+        pid = fork(); // Fork a new child
 
-        if (pid == 0) // Checks if current process is a child
-        {
-            // Child process
-            printf("Process %d (%d) creating Process %d (%d)\n", ix, getppid(),
-                ix + 1, getpid());
+        if (pid == 0) { // Child process
             printf("Process %d (%d) beginning\n", ix + 1, getpid());
+            if (ix + 1 < number_of_processes) {
+                printf("Process %d (%d) creating Process %d (%d)\n", ix + 1,
+                    getpid(), ix + 2, getpid());
+            }
             sleep(1 + (rand() % 8));
-        } else if (pid > 0) // Checks if current process is a parent
-        {
-            waitpid(pid, 0,
-                0); // Wait for the child process to finish before exiting
+        } else if (pid > 0) { // Previous child waits
+            waitpid(pid, 0, 0);
             printf("Process %d (%d) exiting\n", ix, getpid());
-            break; // Exit the parent process
-        } else // Fork failed
-        {
-            perror("fork");
+            break;
+        } else {
+            perror("Fork failed");
             exit(EXIT_FAILURE);
         }
     }
+}
 
-    if (pid == 0) // This is for the last child process to exit
-    {
-        printf("Process %d (%d) exiting\n", number_of_processes, getpid());
-        exit(EXIT_SUCCESS);
+void fork_pattern_two_parent(int number_of_processes)
+{
+    pid_t pid = fork(); // Fork the first child process
+
+    if (pid == 0) { // First child process
+        printf("Parent process 0 (%d) creating Process 1 (%d)\n", getppid(),
+            getpid());
+        printf("Process 1 (%d) beginning\n", getpid());
+        fork_pattern_two_child(1, number_of_processes);
+    } else if (pid > 0) { // Parent process waits for child
+        waitpid(pid, 0, 0);
+        printf("Parent process (%d) exiting\n", getpid());
+    } else {
+        perror("Fork failed");
+        exit(EXIT_FAILURE);
     }
 }
